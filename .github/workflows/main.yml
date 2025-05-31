@@ -1,0 +1,76 @@
+name: Build macOS App (YouTube Cerita Horor Gen - Terintegrasi)
+
+on:
+  push:
+    branches: [ main ] # Atau branch utama Anda
+  pull_request:
+    branches: [ main ] # Atau branch utama Anda
+  workflow_dispatch: # Memungkinkan pemicuan manual
+
+jobs:
+  build-macos:
+    runs-on: macos-latest # Menggunakan runner macOS terbaru
+
+    steps:
+    - name: Check-out repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Sesuaikan dengan versi Python yang Anda gunakan di requirements.txt
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt not found! Please ensure it exists and lists all dependencies."
+          exit 1
+        fi
+        pip install pyinstaller # Instal PyInstaller
+
+    - name: Build macOS .app bundle
+      run: |
+        # Nama aplikasi yang diinginkan
+        APP_NAME="YouTubeCeritaHororGen"
+
+        # Perintah PyInstaller
+        # --noconfirm: Jangan tanya konfirmasi
+        # --windowed: Buat aplikasi GUI tanpa jendela konsol (.app di macOS)
+        # --name: Nama aplikasi output
+        # --add-data "SOURCE:DESTINATION_IN_BUNDLE"
+        #   "static:static" -> Salin folder static sebagai folder static di bundle
+        #   "templates:templates" -> Salin folder templates sebagai folder templates di bundle
+        #   "utils:utils" -> Salin folder utils sebagai folder utils di bundle
+        # --icon: (Opsional) Path ke file ikon .icns untuk macOS.
+        #         Jika Anda hanya punya .ico, PyInstaller mungkin bisa mengonversinya,
+        #         atau Anda bisa mengabaikannya/mengonversi manual ke .icns.
+        #         Untuk contoh ini, kita asumsikan tidak ada ikon spesifik macOS.
+        # app.py adalah skrip utama yang sekarang berisi logika Flask dan Tkinter.
+
+        pyinstaller --noconfirm --windowed \
+          --name "$APP_NAME" \
+          --add-data "static:static" \
+          --add-data "templates:templates" \
+          --add-data "utils:utils" \
+          app.py # Skrip utama yang akan dijalankan
+
+        # Catatan: Jika ada hidden imports yang tidak terdeteksi PyInstaller (misalnya dari google.generativeai atau dependensi Flask),
+        # Anda mungkin perlu menambahkannya dengan --hidden-import=nama_modul.
+        # Contoh: --hidden-import=google.generativeai.types --hidden-import=werkzeug.serving
+
+    - name: Prepare .app for Upload
+      run: |
+        # .app adalah sebuah direktori, jadi lebih baik di-zip sebelum diunggah
+        # Menggunakan APP_NAME yang didefinisikan sebelumnya
+        APP_NAME="YouTubeCeritaHororGen"
+        ditto -c -k --sequesterRsrc --keepParent "dist/$APP_NAME.app" "$APP_NAME-macOS.zip"
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: YouTubeCeritaHororGen-macOS-Integrated
+        path: YouTubeCeritaHororGen-macOS.zip # Mengunggah file .zip
+        if-no-files-found: error
