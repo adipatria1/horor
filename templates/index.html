@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Cerita Horor Indonesia</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Generator Cerita Horor Indonesia</h1>
+        
+        <div class="api-key-container" id="apiKeySection" style="display: {{ 'none' if api_key_set else 'block' }}">
+            <h2>Set Google API Key</h2>
+            <div class="form-container">
+                <input type="password" id="apiKey" placeholder="Masukkan Google API Key..." required>
+                <button onclick="setApiKey()" id="setApiKeyBtn">Set API Key</button>
+            </div>
+        </div>
+
+        <div class="story-form" id="storyForm" style="display: {{ 'block' if api_key_set else 'none' }}">
+            <div class="form-container">
+                <input type="text" id="title" placeholder="Masukkan judul cerita..." required>
+                <select id="model" class="form-select">
+                    {% for model in models %}
+                    <option value="{{ model }}" {% if model == 'gemini-2.0-flash-exp' %}selected{% endif %}>{{ model }}</option>
+                    {% endfor %}
+                </select>
+                <input type="number" id="parts" value="3" min="1" max="10" class="form-input" title="Jumlah bagian (1-10)">
+                <button onclick="generateStory()" id="generateBtn">Generate Cerita</button>
+            </div>
+            <div class="loading" id="loading" style="display: none;">
+                Sedang membuat cerita...
+            </div>
+            <div class="story-container">
+                <div id="storyOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function setApiKey() {
+            const apiKey = document.getElementById('apiKey').value;
+            const setApiKeyBtn = document.getElementById('setApiKeyBtn');
+            
+            if (!apiKey) {
+                alert('Silakan masukkan API key');
+                return;
+            }
+
+            setApiKeyBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/set-api-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `api_key=${encodeURIComponent(apiKey)}`
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('apiKeySection').style.display = 'none';
+                    document.getElementById('storyForm').style.display = 'block';
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                setApiKeyBtn.disabled = false;
+            }
+        }
+
+        async function generateStory() {
+            const title = document.getElementById('title').value;
+            const model = document.getElementById('model').value;
+            const parts = document.getElementById('parts').value;
+            const loading = document.getElementById('loading');
+            const generateBtn = document.getElementById('generateBtn');
+            const storyOutput = document.getElementById('storyOutput');
+
+            if (!title) {
+                alert('Silakan masukkan judul cerita');
+                return;
+            }
+
+            loading.style.display = 'block';
+            generateBtn.disabled = true;
+            storyOutput.innerHTML = '';
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `title=${encodeURIComponent(title)}&model=${encodeURIComponent(model)}&parts=${encodeURIComponent(parts)}`
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    storyOutput.innerHTML = data.story.replace(/\n/g, '<br>');
+                } else {
+                    storyOutput.innerHTML = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                storyOutput.innerHTML = `Error: ${error.message}`;
+            } finally {
+                loading.style.display = 'none';
+                generateBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
